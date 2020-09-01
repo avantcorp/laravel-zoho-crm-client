@@ -1,0 +1,20 @@
+{
+  "name": "avantcorp/laravel-zoho-crm-client",
+  "description": "A wrapper around avantcorp/laravel-zoho-client configured to connect to Zoho CRM",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Ali Saleem",
+      "email": "alisaleem@outlook.com"
+    }
+  ],
+  "require": {
+    "avantcorp/laravel-zoho-client": "^1.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Avant\\LaravelZohoCRMClient\\": "src/"
+    }
+  }
+}
