@@ -13,8 +13,12 @@ class ZohoCRMClient extends ZohoClient
     {
         $params = collect($params);
         $response = $this->request()
-            ->get($url, $params->toArray())
-            ->object();
+            ->get($url, $params->toArray());
+        if($response->status() >= 400){
+            throw new \Exception($response->body());
+        }
+
+        $response = $response->object();
 
         if (empty($response->data) || !is_array($response->data)) {
             return collect();
