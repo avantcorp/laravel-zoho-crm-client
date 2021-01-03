@@ -59,7 +59,7 @@ class ZohoCRMClient extends ZohoClient
     {
         return $this->searchProducts([
             'Product_Active' => 'true',
-            'Advert'         => 'true',
+            'Website_Advert' => 'true',
         ]);
     }
 }
