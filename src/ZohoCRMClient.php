@@ -1,8 +1,8 @@
 <?php
 
-namespace Avant\LaravelZohoCRMClient;
+namespace Avant\ZohoClient\Crm;
 
-use Avant\LaravelZohoClient\ZohoClient;
+use Avant\ZohoClient\ZohoClient;
 use Illuminate\Support\Collection;
 
 class ZohoCRMClient extends ZohoClient
