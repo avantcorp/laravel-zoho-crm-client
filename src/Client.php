@@ -1,11 +1,11 @@
 <?php
 
-namespace Avant\ZohoClient\Crm;
+namespace Avant\ZohoCRM;
 
-use Avant\Zoho\Client;
+use Avant\Zoho\Client as ZohoClient;
 use Illuminate\Support\Collection;
 
-class ZohoCRMClient extends Client
+class Client extends ZohoClient
 {
     protected string $baseUrl = 'https://www.zohoapis.com/crm/v2';
 
