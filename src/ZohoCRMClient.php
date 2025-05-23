@@ -2,12 +2,12 @@
 
 namespace Avant\ZohoClient\Crm;
 
-use Avant\ZohoClient\ZohoClient;
+use Avant\Zoho\Client;
 use Illuminate\Support\Collection;
 
-class ZohoCRMClient extends ZohoClient
+class ZohoCRMClient extends Client
 {
-    protected $baseUrl = 'https://www.zohoapis.com/crm/v2';
+    protected string $baseUrl = 'https://www.zohoapis.com/crm/v2';
 
     protected function getRecords(string $url, iterable $params = []): Collection
     {
