@@ -10,7 +10,8 @@
         }
     ],
     "require": {
-        "avantcorp/laravel-zoho-client": "^4.0"
+        "avantcorp/laravel-zoho-client": "^4.0",
+        "ext-curl": "*"
     },
     "autoload": {
         "psr-4": {
