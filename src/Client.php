@@ -167,7 +167,7 @@ class Client extends ZohoClient
                 }
 
                 $hasMorePage = $response->info->more_records ?? false;
-                $params['page_token'] = $response->next_page_token;
+                $params['page_token'] = $hasMorePage ? $response->info->next_page_token : null;
             }
         });
     }
