@@ -30,7 +30,7 @@ use Illuminate\Support\Collection;
  * @property bool $self_serviced
  * @property History $latest_service
  */
-class Vehicle extends Record
+class Product extends Record
 {
     protected array $keep = [
         'MOT_Data',
@@ -49,7 +49,7 @@ class Vehicle extends Record
     public function __construct(iterable $attributes = [])
     {
         $attributes['MOT_Data'] = collect($attributes['MOT_Data'] ?? [])
-            ->map(fn($history) => (array) $history)
+            ->map(fn ($history) => (array) $history)
             ->mapInto(History::class);
 
         parent::__construct($attributes);
@@ -98,7 +98,7 @@ class Vehicle extends Record
     public function getLatestServiceAttribute(): ?History
     {
         return $this->MOT_Data
-            ->filter(fn($history) => in_array($history->Result, ['Service', 'Maindealer Service']))
+            ->filter(fn ($history) => in_array($history->Result, ['Service', 'Maindealer Service']))
             ->first();
     }
 

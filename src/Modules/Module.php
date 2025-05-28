@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Avant\ZohoCRM\Modules;
 
 use Avant\ZohoCRM\Client;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 
 readonly class Module
@@ -12,9 +16,20 @@ readonly class Module
         protected string $apiName
     ) {}
 
-    public function get(string $id)
+    public function recordClass(): string
     {
-        $response = $this->client->__getRequest("$this->apiName/$id");
+        $recordClass = str(__NAMESPACE__)
+            ->beforeLast('Modules')
+            ->append('Records\\')
+            ->append(str($this->apiName)->ucfirst()->singular())
+            ->toString();
+
+        return $recordClass;
+    }
+
+    public function get(string $id): mixed
+    {
+        $response = $this->client->__getRequest("{$this->apiName}/{$id}");
         if (!$response) {
             return null;
         }
@@ -24,28 +39,35 @@ readonly class Module
         return new $recordClass($response);
     }
 
-    public function list(string $url, iterable $query = []): LazyCollection
+    public function search(iterable $filters = [], iterable $query = []): LazyCollection
     {
-        return $this->client->__listRequest($url, $query);
+        return $this->client->__searchRecords($this->apiName, $filters, $query)
+            ->mapInto($this->recordClass());
     }
 
-    public function insert($data)
+    public function list(iterable $query = []): LazyCollection
+    {
+        return $this->client->__listRequest($this->apiName, $query)
+            ->mapInto($this->recordClass());
+    }
+
+    public function insert($data): Collection
     {
         return $this->client->__insertRecords($this->apiName, $data);
     }
 
-    public function update(string $id)
+    public function update($data): Collection
     {
-        return $this->client->__updateRecords($this->apiName, $id);
+        return $this->client->__updateRecords($this->apiName, $data);
     }
 
-    public function delete(string $id)
+    public function delete(string $id): Collection
     {
         return $this->client->__deleteRecords($this->apiName, $id);
     }
 
-    public function uploadImage(string $id, string $path)
+    public function uploadFile(string $id, string $filepath): Response
     {
-        return $this->client->__uploadImage($this->apiName, $id, $path);
+        return $this->client->__uploadFile("{$this->apiName}/{$id}", $filepath);
     }
 }

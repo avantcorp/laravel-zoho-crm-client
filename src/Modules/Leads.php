@@ -4,47 +4,28 @@ declare(strict_types=1);
 
 namespace Avant\ZohoCRM\Modules;
 
-use Avant\ZohoCRM\Client;
-use Avant\ZohoCRM\PushResponse;
 use Avant\ZohoCRM\Records\Lead;
-use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 
-/**
- * @mixin Client
- *
- * @method Lead|null getLeads(string $id)
- * @method Lead getLeadsOrFail(string $id)
- * @method Collection|PushResponse[] insertLeads(Collection|Lead[]|Lead $records)
- * @method Collection|PushResponse[] updateLeads(Collection|Lead[]|Lead $records)
- * @method Collection|PushResponse[] upsertLeads(Collection|Lead[]|Lead $records)
- * @method Collection|PushResponse[] deleteLeads(string[]|Collection|Lead[]|Lead $records)
- * @method Collection|Lead[] searchLeads(iterable $filters = [], iterable $params = [])
- * @method Collection|Lead[] searchLeadsOrFail(iterable $filters = [], iterable $params = [])
- * @method Collection|Lead[] listLeads(iterable $params = [])
- * @method Collection|Lead[] listLeadsOrFail(iterable $params = [])
- */
 readonly class Leads extends Module
 {
-
-    /** @return Collection|Lead[] */
-    public function listLeadsByVehicle(string $vehicleId): Collection
+    public function listLeadsByVehicle(string $vehicleId): LazyCollection
     {
-        return $this->searchLeads(['Vehicle_of_Interest' => $vehicleId]);
+        return $this->client->__searchRecords($this->apiName, ['Vehicle_of_Interest' => $vehicleId]);
     }
 
-    /** @return Collection|Lead[] */
-    public function listLeadsByParentLead(string $leadId): Collection
+    public function listLeadsByParentLead(string $leadId): LazyCollection
     {
-        return $this->searchLeads(['Parent_Lead' => $leadId]);
+        return $this->client->__searchRecords($this->apiName, ['Parent_Lead' => $leadId]);
     }
 
     public function getLeadsByEmail(string $email): ?Lead
     {
-        return $this->searchLeads(['Email' => $email])->first();
+        return $this->client->__searchRecords($this->apiName, ['Email' => $email])->first();
     }
 
     public function getLeadsByPhone(string $phone): ?Lead
     {
-        return $this->searchLeads(['Phone' => sanitise_phone($phone)])->first();
+        return $this->client->__searchRecords($this->apiName, ['Phone' => sanitise_phone($phone)])->first();
     }
 }

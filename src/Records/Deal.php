@@ -7,6 +7,4 @@ namespace Avant\ZohoCRM\Records;
 /**
  * @property string $Vehicle
  */
-class Deal extends Record
-{
-}
+class Deal extends Record {}

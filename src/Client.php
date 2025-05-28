@@ -5,32 +5,49 @@ declare(strict_types=1);
 namespace Avant\ZohoCRM;
 
 use Avant\Zoho\Client as ZohoClient;
+use Avant\ZohoCRM\Modules\Calls;
+use Avant\ZohoCRM\Modules\Complaints;
+use Avant\ZohoCRM\Modules\Contacts;
+use Avant\ZohoCRM\Modules\Deals;
+use Avant\ZohoCRM\Modules\Histories;
+use Avant\ZohoCRM\Modules\Leads;
 use Avant\ZohoCRM\Modules\Module;
+use Avant\ZohoCRM\Modules\Notes;
+use Avant\ZohoCRM\Modules\Products;
+use Avant\ZohoCRM\Modules\Vendors;
 use Avant\ZohoCrm\Records\Record;
+use CURLFile;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 
 /**
- * @method Module calls(),
- * @method Module vehicles(),
- * @method Module contacts(),
- * @method Module leads(),
- * @method Module deals(),
- * @method Module notes(),
- * @method Module vendors(),
- * @method Module histories(),
- * @method Module products(),
- * @method Module complaints()
+ * @method Calls calls(),
+ * @method Contacts contacts(),
+ * @method Leads leads(),
+ * @method Deals deals(),
+ * @method Notes notes(),
+ * @method Vendors vendors(),
+ * @method Histories histories(),
+ * @method Products products(),
+ * @method Complaints complaints()
  */
 
 class Client extends ZohoClient
 {
-    private const RESOURCE_MAP = [];
     protected string $baseUrl = 'https://www.zohoapis.com/crm/v8';
 
     public function __call($name, $arguments)
     {
+        $moduleClass = str(__NAMESPACE__."\\Modules\\")
+            ->append(str($name)->ucfirst())
+            ->toString();
+
+        if (class_exists($moduleClass)) {
+            return new $moduleClass($this, ucfirst($name));
+        }
+
         return new Module($this, ucfirst($name));
     }
 
@@ -49,7 +66,7 @@ class Client extends ZohoClient
                 $results = collect($response->data)
                     ->map(fn ($pushResponse) => (array)$pushResponse)
                     ->mapInto(PushResponse::class);
-                $records->values()->each(function (Record $record, int $index) use ($results) {
+                $records->values()->each(function (Record $record, int $index) use ($results): void {
                     $record->id = $results->get($index)->id;
                     $record->syncOriginalAttribute('id');
                 });
@@ -85,7 +102,7 @@ class Client extends ZohoClient
 
     public function __upsertRecords(string $url, $records): Collection
     {
-        return $this->__insertRecords("$url/upsert", $records);
+        return $this->__insertRecords("{$url}/upsert", $records);
     }
 
     public function __deleteRecords(string $url, $records): Collection
@@ -102,7 +119,7 @@ class Client extends ZohoClient
             ->map(function (Collection $ids) use ($url) {
                 $response = $this
                     ->request()
-                    ->delete("$url?ids={$ids->implode(',')}")
+                    ->delete("{$url}?ids={$ids->implode(',')}")
                     ->throw()
                     ->object();
 
@@ -114,18 +131,20 @@ class Client extends ZohoClient
             ->keyBy(fn ($pushResponse) => $pushResponse->id);
     }
 
-    public function __searchRecords(string $url, iterable $filters = [], iterable $params = []): Collection
+    public function __searchRecords(string $url, iterable $filters = [], iterable $params = []): LazyCollection
     {
         $params = collect($params)
-            ->put('criteria', collect($filters)
-                ->map(fn($v, $k) => "($k:equals:$v)")
+            ->put(
+                'criteria',
+                collect($filters)
+                    ->map(fn ($v, $k) => "({$k}:equals:{$v})")
                 ->implode('and')
             );
 
-        return $this->__getRequest("$url/search", $params);
+        return $this->__listRequest("{$url}/search", $params);
     }
 
-    public function __getRequest(string $url, iterable $params = []): ?object
+    public function __getRequest(string $url, iterable $params = [])
     {
         $params = collect($params);
 
@@ -133,7 +152,7 @@ class Client extends ZohoClient
             ->request()
             ->get($url, Collection::wrap($params))
             ->throw()
-            ->object();
+            ->json();
     }
 
     public function __listRequest(string $url, iterable $params = []): LazyCollection
@@ -148,22 +167,24 @@ class Client extends ZohoClient
                 }
 
                 $hasMorePage = $response->info->more_records ?? false;
-                $params['page'] = $response->page_context->page + 1;
+                $params['page_token'] = $response->next_page_token;
             }
         });
     }
 
     /** @todo */
-    public function __uploadFile(string $url, string $filepath)
+    public function __uploadFile(string $url, string $filepath): Response
     {
         $response = $this->request()
             ->asMultipart()
             ->post($url, [
-                'file' => new \CURLFile(
+                'file' => new CURLFile(
                     realpath($filepath),
                     mime_content_type($filepath),
                     pathinfo($filepath, PATHINFO_FILENAME)
                 ),
             ]);
+
+        return $response;
     }
 }

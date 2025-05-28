@@ -47,7 +47,7 @@ abstract class OfflineModel implements ArrayAccess, Arrayable, Jsonable, JsonSer
         return !is_null($this->getAttribute($offset));
     }
 
-    public function offsetGet($offset)
+    public function offsetGet($offset): mixed
     {
         return $this->getAttribute($offset);
     }
@@ -120,7 +120,7 @@ abstract class OfflineModel implements ArrayAccess, Arrayable, Jsonable, JsonSer
         return $json;
     }
 
-    public function jsonSerialize()
+    public function jsonSerialize(): mixed
     {
         return $this->toArray();
     }

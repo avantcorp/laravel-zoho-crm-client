@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Avant\ZohoCRM;
 
+use Exception;
+
 /**
  * @property string $id
  * @property string $code
@@ -14,8 +16,9 @@ class PushResponse extends OfflineModel
 {
     public function throw(): void
     {
-        throw_unless($this->code === 'SUCCESS',
-            new \Exception("[{$this->id}] $this->message")
+        throw_unless(
+            $this->code === 'SUCCESS',
+            new Exception("[{$this->id}] {$this->message}")
         );
     }
 

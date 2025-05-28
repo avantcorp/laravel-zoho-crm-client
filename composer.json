@@ -16,7 +16,10 @@
     "autoload": {
         "psr-4": {
             "Avant\\ZohoCRM\\": "src/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "require-dev": {
         "orchestra/testbench": "^10.3"
