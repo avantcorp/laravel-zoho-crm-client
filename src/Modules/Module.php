@@ -29,14 +29,9 @@ readonly class Module
 
     public function get(string $id): mixed
     {
-        $response = $this->client->__getRequest("{$this->apiName}/{$id}");
-        if (!$response) {
-            return null;
-        }
-
-        $recordClass = str($this->apiName);
-
-        return new $recordClass($response);
+        return collect(data_get($this->client->__getRequest("{$this->apiName}/{$id}"), 'data'))
+            ->mapInto($this->recordClass())
+            ->first();
     }
 
     public function search(iterable $filters = [], iterable $query = []): LazyCollection
@@ -61,9 +56,14 @@ readonly class Module
         return $this->client->__updateRecords($this->apiName, $data);
     }
 
-    public function delete(string $id): Collection
+    public function upsert($data): Collection
     {
-        return $this->client->__deleteRecords($this->apiName, $id);
+        return $this->client->__upsertRecords($this->apiName, $data);
+    }
+
+    public function delete($data): Collection
+    {
+        return $this->client->__deleteRecords($this->apiName, $data);
     }
 
     public function uploadFile(string $id, string $filepath): Response
