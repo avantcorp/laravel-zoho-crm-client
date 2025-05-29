@@ -33,7 +33,6 @@ use Illuminate\Support\LazyCollection;
  * @method Products products(),
  * @method Complaints complaints()
  */
-
 class Client extends ZohoClient
 {
     protected string $baseUrl = 'https://www.zohoapis.com/crm/v8';
@@ -138,7 +137,7 @@ class Client extends ZohoClient
                 'criteria',
                 collect($filters)
                     ->map(fn ($v, $k) => "({$k}:equals:{$v})")
-                ->implode('and')
+                    ->implode('and')
             );
 
         return $this->__listRequest("{$url}/search", $params);
@@ -165,9 +164,13 @@ class Client extends ZohoClient
                 foreach (data_get($response, 'data') as $record) {
                     yield $record;
                 }
-
-                $hasMorePage = $response->info->more_records ?? false;
-                $params['page_token'] = $hasMorePage ? $response->info->next_page_token : null;
+                if ($hasMorePage = data_get($response, 'info.more_records', false)) {
+                    if ($nextPageToken = data_get($response, 'info.next_page_token')) {
+                        $params['page_token'] = $nextPageToken;
+                    } else {
+                        $params['page'] = data_get($params, 'page', 1) + 1;
+                    }
+                }
             }
         });
     }
