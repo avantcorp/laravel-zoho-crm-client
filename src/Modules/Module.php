@@ -5,18 +5,31 @@ declare(strict_types=1);
 namespace Avant\ZohoCRM\Modules;
 
 use Avant\ZohoCRM\Client;
-use Illuminate\Http\Client\Response;
+use Avant\ZohoCRM\Records\Record;
+use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 
+/** @template T */
 readonly class Module
 {
-    public function __construct(
-        protected Client $client,
-        protected string $apiName
-    ) {}
+    public string $recordClass;
 
-    public function recordClass(): string
+    public function __construct(
+        private Client $client,
+        private string $apiName,
+        ?string $recordClass = null,
+    ) {
+        $this->recordClass = $recordClass ?: $this->recordClass();
+
+        throw_unless(
+            is_a($this->recordClass, Record::class, true),
+            new Exception('Record class must be a subclass of '.Record::class)
+        );
+    }
+
+    /** @return class-string<T> */
+    protected function recordClass(): string
     {
         $recordClass = str(__NAMESPACE__)
             ->beforeLast('Modules')
@@ -24,50 +37,106 @@ readonly class Module
             ->append(str($this->apiName)->ucfirst()->singular())
             ->toString();
 
-        return $recordClass;
+        return class_exists($recordClass) ? $recordClass : Record::class;
     }
 
-    public function get(string $id): mixed
+    /** @return ?T */
+    public function get(string $id): ?Record
     {
-        return collect(data_get($this->client->__getRequest("{$this->apiName}/{$id}"), 'data'))
-            ->mapInto($this->recordClass())
+        return collect(data_get($this->client->getRequest("{$this->apiName}/{$id}"), 'data'))
+            ->take(1)
+            ->map(fn (array $attributes): Record => $this->recordClass::make($attributes))
             ->first();
     }
 
-    public function search(iterable $filters = [], iterable $query = []): LazyCollection
+    /** @return T */
+    public function getOrFail(string $id): Record
     {
-        return $this->client->__searchRecords($this->apiName, $filters, $query)
-            ->mapInto($this->recordClass());
+        throw_unless($record = $this->get($id), new Exception("{$this->apiName}:{$id} not found"));
+
+        return $record;
     }
 
-    public function list(iterable $query = []): LazyCollection
+    /** @return LazyCollection<string, T> */
+    public function list(iterable $criteria = [], iterable $query = []): LazyCollection
     {
-        return $this->client->__listRequest($this->apiName, $query)
-            ->mapInto($this->recordClass());
+        $records = $criteria
+            ? $this->client->search($this->apiName, $criteria, $query)
+            : $this->client->listRequest($this->apiName, $query);
+
+        return $records
+            ->keyBy('id')
+            ->map(fn (array $attributes): Record => $this->recordClass::make($attributes));
     }
 
-    public function insert($data): Collection
+    /** @return ?T */
+    public function find(iterable $criteria, iterable $query = []): ?Record
     {
-        return $this->client->__insertRecords($this->apiName, $data);
+        return $this->list($criteria, $query)->sole();
     }
 
-    public function update($data): Collection
+    /** @return T */
+    public function findOrFail(iterable $criteria, iterable $query = []): Record
     {
-        return $this->client->__updateRecords($this->apiName, $data);
+        throw_unless(
+            $record = $this->list($criteria, $query)->first(),
+            new Exception("Matching {$this->apiName} not found")
+        );
+
+        return $record;
     }
 
-    public function upsert($data): Collection
+    /**
+     * @param Collection<string, T> $records
+     *
+     * @return Collection<string>
+     */
+    public function insertMany(Collection $records): Collection
     {
-        return $this->client->__upsertRecords($this->apiName, $data);
+        return $this->client
+            ->insert($this->apiName, $records);
     }
 
-    public function delete($data): Collection
+    public function insert(Record $record): string
     {
-        return $this->client->__deleteRecords($this->apiName, $data);
+        return $this->insertMany(collect([$record]))->first();
     }
 
-    public function uploadFile(string $id, string $filepath): Response
+    /**
+     * @param Collection<string, T> $records
+     *
+     * @return Collection<string>
+     */
+    public function upsertMany(Collection $records): Collection
     {
-        return $this->client->__uploadFile("{$this->apiName}/{$id}", $filepath);
+        return $this->client
+            ->upsert($this->apiName, $records);
+    }
+
+    public function upsert(Record $record): string
+    {
+        return $this->upsertMany(collect([$record]))->first();
+    }
+
+    public function updateMany(Collection $records): void
+    {
+        $this->client
+            ->update($this->apiName, $records);
+    }
+
+    public function update(Record $record): void
+    {
+        $this->updateMany(collect([$record]));
+    }
+
+    public function deleteMany(Collection $records): void
+    {
+        $this->client
+            ->delete($this->apiName, $records);
+    }
+
+    public function delete(Record $record): void
+    {
+        $this->deleteMany(collect([$record]));
     }
 }

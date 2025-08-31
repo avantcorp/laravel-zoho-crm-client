@@ -10,19 +10,23 @@
         }
     ],
     "require": {
-        "avantcorp/laravel-zoho-client": "^4.0",
-        "ext-curl": "*"
+        "php": "^8.4",
+        "ext-curl": "*",
+        "ext-fileinfo": "*",
+        "avantcorp/laravel-zoho-client": "^4.1"
+    },
+    "require-dev": {
+        "orchestra/pest-plugin-testbench": "^3.2"
     },
     "autoload": {
         "psr-4": {
             "Avant\\ZohoCRM\\": "src/"
-        },
-        "files": [
-            "src/helpers.php"
-        ]
+        }
     },
-    "require-dev": {
-        "orchestra/testbench": "^10.3"
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
     },
     "extra": {
         "laravel": {
@@ -30,5 +34,28 @@
                 "Avant\\ZohoCRM\\ZohoCRMServiceProvider"
             ]
         }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@clear",
+            "@prepare"
+        ],
+        "clear": "@php vendor/bin/testbench package:purge-skeleton --ansi",
+        "prepare": "@php vendor/bin/testbench package:discover --ansi",
+        "build": "@php vendor/bin/testbench workbench:build --ansi",
+        "serve": [
+            "Composer\\Config::disableProcessTimeout",
+            "@build",
+            "@php vendor/bin/testbench serve --ansi"
+        ],
+        "test": [
+            "@clear",
+            "@php vendor/bin/pest"
+        ]
     }
 }

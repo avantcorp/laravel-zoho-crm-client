@@ -5,54 +5,23 @@ declare(strict_types=1);
 namespace Avant\ZohoCRM;
 
 use Avant\Zoho\Client as ZohoClient;
-use Avant\ZohoCRM\Modules\Calls;
-use Avant\ZohoCRM\Modules\Complaints;
-use Avant\ZohoCRM\Modules\Contacts;
-use Avant\ZohoCRM\Modules\Deals;
-use Avant\ZohoCRM\Modules\Histories;
-use Avant\ZohoCRM\Modules\Leads;
-use Avant\ZohoCRM\Modules\Module;
-use Avant\ZohoCRM\Modules\Notes;
-use Avant\ZohoCRM\Modules\Products;
-use Avant\ZohoCRM\Modules\Vendors;
-use Avant\ZohoCrm\Records\Record;
+use Avant\ZohoCRM\Records\Record;
 use CURLFile;
+use Exception;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 
-/**
- * @method Calls calls(),
- * @method Contacts contacts(),
- * @method Leads leads(),
- * @method Deals deals(),
- * @method Notes notes(),
- * @method Vendors vendors(),
- * @method Histories histories(),
- * @method Products products(),
- * @method Complaints complaints()
- */
 class Client extends ZohoClient
 {
-    protected string $baseUrl = 'https://www.zohoapis.com/crm/v8';
-
-    public function __call($name, $arguments)
+    protected function getBaseUrl(): string
     {
-        $moduleClass = str(__NAMESPACE__."\\Modules\\")
-            ->append(str($name)->ucfirst())
-            ->toString();
-
-        if (class_exists($moduleClass)) {
-            return new $moduleClass($this, ucfirst($name));
-        }
-
-        return new Module($this, ucfirst($name));
+        return config('zoho-crm.base_url');
     }
 
-    public function __insertRecords(string $url, $records): Collection
+    public function insert(string $url, Collection $records): Collection
     {
-        return collect(Arr::wrap($records))
+        return $records
             ->filter()
             ->chunk(200)
             ->map(function (Collection $records) use ($url) {
@@ -62,132 +31,121 @@ class Client extends ZohoClient
                     ->throw()
                     ->object();
 
-                $results = collect($response->data)
-                    ->map(fn ($pushResponse) => (array)$pushResponse)
-                    ->mapInto(PushResponse::class);
-                $records->values()->each(function (Record $record, int $index) use ($results): void {
-                    $record->id = $results->get($index)->id;
-                    $record->syncOriginalAttribute('id');
-                });
+                $results = collect($response->data);
 
-                return $results;
+                $results
+                    ->filter(fn ($record) => $record->code !== 'SUCCESS')
+                    ->whenNotEmpty(function (Collection $failed): void {
+                        throw new Exception(sprintf(
+                            'Failed to insert records %s',
+                            $failed
+                                ->map(fn ($result) => "[{$result?->details?->id}] {$result->message}")
+                                ->implode(', ')
+                        ));
+                    });
+
+                return $results->map(fn ($result) => $result->details->id);
             })
-            ->collapse()
-            ->keyBy(fn ($pushResponse) => $pushResponse->id);
+            ->collapse();
     }
 
-    public function __updateRecords(string $url, $records): Collection
+    public function update(string $url, Collection $records): Collection
     {
-        return collect(Arr::wrap($records))
+        $records
             ->keyBy('id')
             ->map(fn (Record $record) => $record->syncChanges()->getChanges())
             ->filter()
             ->chunk(200)
-            ->map(function (Collection $records) use ($url) {
+            ->map(function (Collection $records) use ($url): void {
                 $records->transform(fn ($changes, $id) => compact('id') + $changes);
-                $response = $this
+
+                $this
                     ->request()
                     ->put($url, ['data' => $records->values()])
                     ->throw()
                     ->object();
-
-                return collect($response->data)
-                    ->map(fn ($pushResponse) => (array)$pushResponse)
-                    ->mapInto(PushResponse::class);
-            })
-            ->collapse()
-            ->keyBy(fn ($pushResponse) => $pushResponse->id);
+            });
     }
 
-    public function __upsertRecords(string $url, $records): Collection
+    public function upsert(string $url, Collection $records): Collection
     {
-        return $this->__insertRecords("{$url}/upsert", $records);
+        return $this->insert("{$url}/upsert", $records);
     }
 
-    public function __deleteRecords(string $url, $records): Collection
+    public function delete(string $url, Collection $records): void
     {
-        $records = collect(Arr::wrap($records));
-
-        return $records
-            ->when(
-                $records->first() instanceof Record,
-                fn (Collection $records) => $records->pluck('id')
-            )
+        $records
+            ->pluck('id')
             ->unique()
             ->chunk(10)
-            ->map(function (Collection $ids) use ($url) {
-                $response = $this
+            ->map(function (Collection $ids) use ($url): void {
+                $this
                     ->request()
                     ->delete("{$url}?ids={$ids->implode(',')}")
                     ->throw()
                     ->object();
-
-                return collect($response->data)
-                    ->map(fn ($pushResponse) => (array)$pushResponse)
-                    ->mapInto(PushResponse::class);
-            })
-            ->collapse()
-            ->keyBy(fn ($pushResponse) => $pushResponse->id);
+            });
     }
 
-    public function __searchRecords(string $url, iterable $filters = [], iterable $params = []): LazyCollection
+    public function search(string $url, iterable $criteria = [], iterable $query = []): LazyCollection
     {
-        $params = collect($params)
+        $query = collect($query)
             ->put(
                 'criteria',
-                collect($filters)
-                    ->map(fn ($v, $k) => "({$k}:equals:{$v})")
-                    ->implode('and')
+                str(
+                    collect($criteria)
+                        ->map(function ($v, $k) {
+                            $v = is_bool($v) ? ($v ? 'true' : 'false') : $v;
+                            return "({$k}:equals:{$v})";
+                        })
+                        ->implode('and')
+                )->toString(),
             );
 
-        return $this->__listRequest("{$url}/search", $params);
+        return $this->listRequest("{$url}/search", $query);
     }
 
-    public function __getRequest(string $url, iterable $params = [])
+    public function getRequest(string $url, iterable $query = []): array
     {
-        $params = collect($params);
-
         return $this
             ->request()
-            ->get($url, Collection::wrap($params))
+            ->get($url, Collection::wrap($query)->toArray())
             ->throw()
-            ->json();
+            ->json() ?: [];
     }
 
-    public function __listRequest(string $url, iterable $params = []): LazyCollection
+    public function listRequest(string $url, iterable $query = []): LazyCollection
     {
-        return LazyCollection::make(function () use ($url, $params) {
+        return LazyCollection::make(function () use ($url, $query) {
             $hasMorePage = true;
             while ($hasMorePage) {
-                $response = $this->__getRequest($url, $params);
+                $response = $this->getRequest($url, $query);
 
-                foreach (data_get($response, 'data') as $record) {
+                foreach (data_get($response, 'data') ?: [] as $record) {
                     yield $record;
                 }
                 if ($hasMorePage = data_get($response, 'info.more_records', false)) {
                     if ($nextPageToken = data_get($response, 'info.next_page_token')) {
-                        $params['page_token'] = $nextPageToken;
+                        $query['page_token'] = $nextPageToken;
                     } else {
-                        $params['page'] = data_get($params, 'page', 1) + 1;
+                        $query['page'] = data_get($query, 'page', 1) + 1;
                     }
                 }
             }
         });
     }
 
-    /** @todo */
-    public function __uploadFile(string $url, string $filepath): Response
+    public function uploadRequest(string $url, string $filepath): Response
     {
-        $response = $this->request()
+        return $this->request()
             ->asMultipart()
             ->post($url, [
                 'file' => new CURLFile(
                     realpath($filepath),
                     mime_content_type($filepath),
-                    pathinfo($filepath, PATHINFO_FILENAME)
+                    pathinfo($filepath, PATHINFO_FILENAME),
                 ),
-            ]);
-
-        return $response;
+            ])
+            ->throw();
     }
 }
