@@ -82,7 +82,7 @@ class Record implements ArrayAccess, Arrayable, Jsonable, JsonSerializable
     private static function normalizeArray($array): array
     {
         $array = Collection::wrap($array)
-            ->filter(fn ($_, $k) => str($k)->doesntStartWith('$'));
+            ->filter(fn ($_, $k) => !str_starts_with($k, '$'));
 
         $array
             ->filter(fn ($v) => is_array($v) && data_get($v, 'id'))
