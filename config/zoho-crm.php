@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'base_url' => env('ZOHO_CRM_BASE_URL', 'https://www.zohoapis.com/crm/v2'),
+    'base_url' => env('ZOHO_CRM_BASE_URL', 'https://www.zohoapis.com/crm'),
     'modules'  => [
         'accounts'       => \Avant\ZohoCRM\Modules\Module::class,
         'appointments'   => \Avant\ZohoCRM\Modules\Module::class,
