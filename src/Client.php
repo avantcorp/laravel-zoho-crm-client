@@ -34,12 +34,12 @@ class Client extends ZohoClient
                 $results = collect($response->data);
 
                 $results
-                    ->filter(fn ($record) => $record->code !== 'SUCCESS')
+                    ->filter(fn ($record): bool => $record->code !== 'SUCCESS')
                     ->whenNotEmpty(function (Collection $failed): void {
                         throw new Exception(sprintf(
                             'Failed to insert records %s',
                             $failed
-                                ->map(fn ($result) => "[{$result?->details?->id}] {$result->message}")
+                                ->map(fn ($result): string => "[{$result?->details?->id}] {$result->message}")
                                 ->implode(', ')
                         ));
                     });
@@ -49,7 +49,12 @@ class Client extends ZohoClient
             ->collapse();
     }
 
-    public function update(string $url, Collection $records): Collection
+    public function upsert(string $url, Collection $records): Collection
+    {
+        return $this->insert("{$url}/upsert", $records);
+    }
+
+    public function update(string $url, Collection $records): void
     {
         $records
             ->keyBy('id')
@@ -59,17 +64,25 @@ class Client extends ZohoClient
             ->map(function (Collection $records) use ($url): void {
                 $records->transform(fn ($changes, $id) => compact('id') + $changes);
 
-                $this
+                $response = $this
                     ->request()
                     ->put($url, ['data' => $records->values()])
                     ->throw()
                     ->object();
-            });
-    }
 
-    public function upsert(string $url, Collection $records): Collection
-    {
-        return $this->insert("{$url}/upsert", $records);
+                $results = collect($response->data);
+
+                $results
+                    ->filter(fn ($record): bool => $record->code !== 'SUCCESS')
+                    ->whenNotEmpty(function (Collection $failed): void {
+                        throw new Exception(sprintf(
+                            'Failed to update records %s',
+                            $failed
+                                ->map(fn ($result): string => "[{$result?->details?->id}] {$result->message}")
+                                ->implode(', ')
+                        ));
+                    });
+            });
     }
 
     public function delete(string $url, Collection $records): void
@@ -79,16 +92,33 @@ class Client extends ZohoClient
             ->unique()
             ->chunk(10)
             ->map(function (Collection $ids) use ($url): void {
-                $this
+                $response = $this
                     ->request()
                     ->delete("{$url}?ids={$ids->implode(',')}")
                     ->throw()
                     ->object();
+
+                $results = collect($response->data);
+
+                $results
+                    ->filter(fn ($record): bool => $record->code !== 'SUCCESS')
+                    ->whenNotEmpty(function (Collection $failed): void {
+                        throw new Exception(sprintf(
+                            'Failed to delete records %s',
+                            $failed
+                                ->map(fn ($result): string => $result?->details?->id)
+                                ->implode(', ')
+                        ));
+                    });
             });
     }
 
-    public function search(string $url, iterable $criteria = [], iterable $query = []): LazyCollection
-    {
+    public function search(
+        string $url,
+        iterable $criteria = [],
+        iterable $query = [],
+        ?string $listProperty = 'data'
+    ): LazyCollection {
         $query = collect($query)
             ->put(
                 'criteria',
@@ -102,7 +132,11 @@ class Client extends ZohoClient
                 )->toString(),
             );
 
-        return $this->listRequest("{$url}/search", $query);
+        return $this->listRequest(
+            url         : "{$url}/search",
+            query       : $query,
+            listProperty: $listProperty
+        );
     }
 
     public function getRequest(string $url, iterable $query = []): array
@@ -114,14 +148,16 @@ class Client extends ZohoClient
             ->json() ?: [];
     }
 
-    public function listRequest(string $url, iterable $query = []): LazyCollection
+    public function listRequest(string $url, iterable $query = [], ?string $listProperty = 'data'): LazyCollection
     {
-        return LazyCollection::make(function () use ($url, $query) {
+        return LazyCollection::make(function () use ($url, $query, $listProperty) {
             $hasMorePage = true;
             while ($hasMorePage) {
                 $response = $this->getRequest($url, $query);
 
-                foreach (data_get($response, 'data') ?: [] as $record) {
+                $list = $listProperty ? data_get($response, $listProperty) : $response;
+
+                foreach ($list ?: [] as $record) {
                     yield $record;
                 }
                 if ($hasMorePage = data_get($response, 'info.more_records', false)) {
