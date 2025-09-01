@@ -14,9 +14,19 @@ use Illuminate\Support\LazyCollection;
 
 class Client extends ZohoClient
 {
+    public function __construct(protected string $apiVersion = 'v2') {}
+
     protected function getBaseUrl(): string
     {
-        return config('zoho-crm.base_url');
+        return implode('/', [
+            rtrim(config('zoho-crm.base_url'), '/'),
+            $this->apiVersion,
+        ]);
+    }
+
+    public function apiVersion(string $apiVersion = 'v2'): static
+    {
+        return new static($apiVersion);
     }
 
     public function insert(string $url, Collection $records): Collection
