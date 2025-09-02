@@ -142,13 +142,13 @@ readonly class Module
         $this->deleteMany(collect([$record]));
     }
 
-    public function uploadAttachment(string $id, string $filePath): void
+    public function uploadAttachment(string $id, string $filePath, ?string $fileName = null): void
     {
-        $this->client->upload("{$this->apiName}/{$id}/Attachments", $filePath);
+        $this->client->upload("{$this->apiName}/{$id}/Attachments", $filePath, $fileName);
     }
 
-    public function uploadPhoto(string $id, string $filePath): void
+    public function uploadPhoto(string $id, string $filePath, ?string $fileName = null): void
     {
-        $this->client->upload("{$this->apiName}/{$id}/photo", $filePath);
+        $this->client->upload("{$this->apiName}/{$id}/photo", $filePath, $fileName);
     }
 }

@@ -187,10 +187,10 @@ class Client extends ZohoClient
         });
     }
 
-    public function upload(string $url, string $filePath): Response
+    public function upload(string $url, string $filePath, ?string $fileName = null): Response
     {
         return $this->request()
-            ->attach('file', file_get_contents($filePath), pathinfo($filePath, PATHINFO_FILENAME))
+            ->attach('file', file_get_contents($filePath), $fileName ?? pathinfo($filePath, PATHINFO_BASENAME))
             ->asMultipart()
             ->post($url)
             ->throw();
