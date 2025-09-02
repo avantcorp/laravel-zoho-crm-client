@@ -48,6 +48,13 @@ class Record implements ArrayAccess, Arrayable, Jsonable, JsonSerializable
         return $this;
     }
 
+    public function forgetOriginal(): static
+    {
+        $this->original = [];
+
+        return $this;
+    }
+
     public function getDirty(): array
     {
         return collect($this->attributes)
@@ -69,7 +76,14 @@ class Record implements ArrayAccess, Arrayable, Jsonable, JsonSerializable
 
     protected function originalIsEquivalent($attribute): bool
     {
-        return $this->original[$attribute] === $this->attributes[$attribute];
+        return (
+                array_key_exists($attribute, $this->attributes)
+                && array_key_exists($attribute, $this->original)
+                && $this->original[$attribute] === $this->attributes[$attribute]
+            ) || (
+                !array_key_exists($attribute, $this->attributes)
+                && !array_key_exists($attribute, $this->original)
+            );
     }
 
     public static function make(iterable $attributes): static

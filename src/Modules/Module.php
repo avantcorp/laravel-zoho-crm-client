@@ -79,7 +79,7 @@ readonly class Module
     public function findOrFail(iterable $criteria, iterable $query = []): Record
     {
         throw_unless(
-            $record = $this->list($criteria, $query)->first(),
+            $record = $this->find($criteria, $query),
             new Exception("Matching {$this->apiName} not found")
         );
 
@@ -99,6 +99,7 @@ readonly class Module
 
     public function insert(Record $record): string
     {
+        /** @var string */
         return $this->insertMany(collect([$record]))->first();
     }
 
@@ -115,6 +116,7 @@ readonly class Module
 
     public function upsert(Record $record): string
     {
+        /** @var string */
         return $this->upsertMany(collect([$record]))->first();
     }
 
@@ -138,5 +140,15 @@ readonly class Module
     public function delete(Record $record): void
     {
         $this->deleteMany(collect([$record]));
+    }
+
+    public function uploadAttachment(string $id, string $filePath): void
+    {
+        $this->client->upload("{$this->apiName}/{$id}/Attachments", $filePath);
+    }
+
+    public function uploadPhoto(string $id, string $filePath): void
+    {
+        $this->client->upload("{$this->apiName}/{$id}/photo", $filePath);
     }
 }

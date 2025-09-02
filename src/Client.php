@@ -5,12 +5,18 @@ declare(strict_types=1);
 namespace Avant\ZohoCRM;
 
 use Avant\Zoho\Client as ZohoClient;
+use Avant\Zoho\OAuth2\Provider;
 use Avant\ZohoCRM\Records\Record;
+use Carbon\Carbon;
 use CURLFile;
 use Exception;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\LazyCollection;
+use League\OAuth2\Client\Token\AccessToken;
+use Spatie\Valuestore\Valuestore;
 
 class Client extends ZohoClient
 {
@@ -33,7 +39,7 @@ class Client extends ZohoClient
     {
         return $records
             ->filter()
-            ->chunk(200)
+            ->chunk(100)
             ->map(function (Collection $records) use ($url) {
                 $response = $this
                     ->request()
@@ -70,7 +76,7 @@ class Client extends ZohoClient
             ->keyBy('id')
             ->map(fn (Record $record) => $record->syncChanges()->getChanges())
             ->filter()
-            ->chunk(200)
+            ->chunk(100)
             ->map(function (Collection $records) use ($url): void {
                 $records->transform(fn ($changes, $id) => compact('id') + $changes);
 
@@ -181,17 +187,12 @@ class Client extends ZohoClient
         });
     }
 
-    public function uploadRequest(string $url, string $filepath): Response
+    public function upload(string $url, string $filePath): Response
     {
         return $this->request()
+            ->attach('file', file_get_contents($filePath), pathinfo($filePath, PATHINFO_FILENAME))
             ->asMultipart()
-            ->post($url, [
-                'file' => new CURLFile(
-                    realpath($filepath),
-                    mime_content_type($filepath),
-                    pathinfo($filepath, PATHINFO_FILENAME),
-                ),
-            ])
+            ->post($url)
             ->throw();
     }
 }
