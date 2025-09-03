@@ -55,7 +55,8 @@ class Client extends ZohoClient
                         throw new Exception(sprintf(
                             'Failed to insert records %s',
                             $failed
-                                ->map(fn ($result): string => "[{$result?->details?->id}] {$result->message}")
+                                ->keyBy('details.index')
+                                ->map(fn($result, string $index) => sprintf('Item %s: %s', $index, json_encode($result)))
                                 ->implode(', ')
                         ));
                     });
