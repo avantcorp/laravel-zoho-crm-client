@@ -86,7 +86,7 @@ class Record implements ArrayAccess, Arrayable, Jsonable, JsonSerializable
             );
     }
 
-    public static function make(iterable $attributes): static
+    public static function from(iterable $attributes): static
     {
         $attributes = static::normalizeArray($attributes);
 
