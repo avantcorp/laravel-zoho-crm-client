@@ -11,7 +11,7 @@ use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 
-/** @template T */
+/** @template T of Record */
 readonly class Module
 {
     public string $recordClass;
@@ -155,10 +155,15 @@ readonly class Module
 
     public function insertNote(Record|string $record, Note $note): string
     {
+        /** @var string */
         return $this->insertManyNotes($record, collect([$note]))->first();
     }
 
-    /** @param Collection<Note> $notes */
+    /**
+     * @param Collection<Note> $notes
+     *
+     * @return Collection<string>
+     */
     public function insertManyNotes(Record|string $record, Collection $notes): Collection
     {
         $recordId = is_a($record, Record::class, true) ? $record->id : $record;
