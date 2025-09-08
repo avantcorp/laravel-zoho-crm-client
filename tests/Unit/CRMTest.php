@@ -106,7 +106,7 @@ test('can create and delete a record', function (): void {
     expect($leadId)->toBeString();
 
     $this->crm->leads()
-        ->delete(Record::make(['id' => $leadId]));
+        ->delete(Record::from(['id' => $leadId]));
 
     expect($this->crm->leads()->get($leadId))
         ->toBeNull();
