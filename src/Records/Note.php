@@ -16,6 +16,6 @@ class Note extends Record
 
     public static function make(?string $title = null, string $content): static
     {
-        return parent::make($content, $title);
+        return new static($content, $title);
     }
 }
