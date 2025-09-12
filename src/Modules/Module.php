@@ -46,7 +46,7 @@ readonly class Module
     {
         return collect(data_get($this->client->getRequest("{$this->apiName}/{$id}"), 'data'))
             ->take(1)
-            ->map(fn (array $attributes): Record => $this->recordClass::make($attributes))
+            ->map(fn (array $attributes): Record => $this->recordClass::from($attributes))
             ->first();
     }
 
@@ -67,7 +67,7 @@ readonly class Module
 
         return $records
             ->keyBy('id')
-            ->map(fn (array $attributes): Record => $this->recordClass::make($attributes));
+            ->map(fn (array $attributes): Record => $this->recordClass::from($attributes));
     }
 
     /** @return ?T */
